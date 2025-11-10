@@ -1,0 +1,136 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.calculator {
+    background: #222;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    width: 360px;
+}
+
+.display {
+    background: #1a1a1a;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: right;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+.previous-operand {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 20px;
+    min-height: 25px;
+}
+
+.current-operand {
+    color: #fff;
+    font-size: 36px;
+    font-weight: 300;
+    min-height: 45px;
+}
+
+.buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.button {
+    border: none;
+    border-radius: 10px;
+    font-size: 24px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+    outline: none;
+}
+
+.button:hover {
+    transform: scale(1.05);
+}
+
+.button:active {
+    transform: scale(0.95);
+}
+
+.button.number {
+    background: #333;
+    color: #fff;
+}
+
+.button.number:hover {
+    background: #444;
+}
+
+.button.operator {
+    background: #ff9500;
+    color: #fff;
+}
+
+.button.operator:hover {
+    background: #ffaa33;
+}
+
+.button.function {
+    background: #a6a6a6;
+    color: #000;
+}
+
+.button.function:hover {
+    background: #b8b8b8;
+}
+
+.button.equals {
+    background: #34c759;
+    color: #fff;
+    grid-column: span 2;
+}
+
+.button.equals:hover {
+    background: #4cd964;
+}
+
+.button.zero {
+    grid-column: span 2;
+}
+
+@media (max-width: 400px) {
+    .calculator {
+        width: 95%;
+        margin: 10px;
+        padding: 15px;
+    }
+
+    .button {
+        padding: 15px;
+        font-size: 20px;
+    }
+
+    .current-operand {
+        font-size: 28px;
+    }
+
+    .previous-operand {
+        font-size: 16px;
+    }
+}
