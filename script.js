@@ -1,279 +1,468 @@
-// 全域變數
-let currentStep = 1;
-const totalSteps = 6;
-let timerInterval = null;
+// =============================================
+// 全域狀態（暫存分析結果）
+// =============================================
+const AppState = {
+    vocabList: [],      // [{ word, definition }]
+    fileName: '',
+    fcIndex: 0,
+    fcFlipped: false,
+    fcOrder: [],        // flashcard display order (indices)
+};
 
-// DOM 載入完成後執行
-document.addEventListener('DOMContentLoaded', function() {
-    initTabs();
-    initStepNavigation();
-    initTimer();
-    initCalculator();
-});
+const SAMPLE_DATA = [
+    { word: 'apple', definition: '蘋果' },
+    { word: 'banana', definition: '香蕉' },
+    { word: 'computer', definition: '電腦' },
+    { word: 'dictionary', definition: '字典' },
+    { word: 'elephant', definition: '大象' },
+    { word: 'flower', definition: '花朵' },
+    { word: 'guitar', definition: '吉他' },
+    { word: 'hospital', definition: '醫院' },
+    { word: 'island', definition: '島嶼' },
+    { word: 'journal', definition: '日誌' },
+];
 
-// 初始化分頁功能
-function initTabs() {
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetTab = button.getAttribute('data-tab');
-
-            // 移除所有 active 類別
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            tabContents.forEach(content => content.classList.remove('active'));
-
-            // 添加 active 到選中的分頁
-            button.classList.add('active');
-            document.getElementById(targetTab).classList.add('active');
-        });
+// =============================================
+// 工具函式：顯示 / 隱藏區塊
+// =============================================
+function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => {
+        s.classList.add('hidden');
+        s.classList.remove('active');
     });
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    el.classList.add('active');
 }
 
-// 初始化步驟導航
-function initStepNavigation() {
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const steps = document.querySelectorAll('.step');
-    const stepIndicator = document.getElementById('stepIndicator');
-    const progress = document.getElementById('progress');
+function setNavActive(navId) {
+    document.querySelectorAll('.step-indicator').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(navId);
+    if (el) el.classList.add('active');
+}
 
-    // 更新步驟顯示
-    function updateStep() {
-        // 更新步驟顯示
-        steps.forEach(step => {
-            step.classList.remove('active');
-            if (parseInt(step.getAttribute('data-step')) === currentStep) {
-                step.classList.add('active');
-            }
-        });
+// =============================================
+// 檔案解析
+// =============================================
+function parseVocabFile(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    const result = [];
+    const separators = [',', '\t', ':', '='];
 
-        // 更新指示器
-        stepIndicator.textContent = `${currentStep} / ${totalSteps}`;
+    for (const line of lines) {
+        // Skip comment lines
+        if (line.startsWith('#')) continue;
 
-        // 更新進度條
-        const progressPercent = (currentStep / totalSteps) * 100;
-        progress.style.width = progressPercent + '%';
+        let sep = null;
+        for (const s of separators) {
+            if (line.includes(s)) { sep = s; break; }
+        }
+        if (!sep) continue;
 
-        // 更新按鈕狀態
-        prevBtn.disabled = currentStep === 1;
-        nextBtn.disabled = currentStep === totalSteps;
+        const idx = line.indexOf(sep);
+        const word = line.substring(0, idx).trim();
+        const definition = line.substring(idx + 1).trim();
 
-        // 捲動到頂部
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (word && definition) {
+            result.push({ word, definition });
+        }
     }
-
-    // 上一步
-    prevBtn.addEventListener('click', () => {
-        if (currentStep > 1) {
-            currentStep--;
-            updateStep();
-        }
-    });
-
-    // 下一步
-    nextBtn.addEventListener('click', () => {
-        if (currentStep < totalSteps) {
-            currentStep++;
-            updateStep();
-        }
-    });
-
-    // 初始化
-    updateStep();
+    return result;
 }
 
-// 初始化計時器
-function initTimer() {
-    const startTimerBtn = document.getElementById('startTimer');
-    const timerHoursInput = document.getElementById('timerHours');
-    const timerDisplay = document.getElementById('timerDisplay');
+function analyzeAndStore(vocabList, fileName) {
+    AppState.vocabList = vocabList;
+    AppState.fileName = fileName;
+    // 暫存分析結果至 sessionStorage
+    sessionStorage.setItem('vocabList', JSON.stringify(vocabList));
+    sessionStorage.setItem('vocabFileName', fileName);
+}
 
-    startTimerBtn.addEventListener('click', () => {
-        // 清除現有計時器
-        if (timerInterval) {
-            clearInterval(timerInterval);
-        }
+// =============================================
+// 分析結果顯示
+// =============================================
+function renderAnalysisSection() {
+    const list = AppState.vocabList;
 
-        const hours = parseInt(timerHoursInput.value) || 6;
-        let totalSeconds = hours * 3600;
-        const endTime = Date.now() + (totalSeconds * 1000);
+    // 統計資訊
+    document.getElementById('analysisStats').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-number">${list.length}</div>
+            <div class="stat-label">詞彙總數</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">${AppState.fileName || '範例資料'}</div>
+            <div class="stat-label">來源檔案</div>
+        </div>
+    `;
 
-        // 更新按鈕文字
-        startTimerBtn.textContent = '重新計時';
+    // 詞彙表格
+    const tbody = document.getElementById('vocabTableBody');
+    tbody.innerHTML = list.map((item, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td><strong>${escapeHtml(item.word)}</strong></td>
+            <td>${escapeHtml(item.definition)}</td>
+        </tr>
+    `).join('');
 
-        // 顯示初始時間
-        updateTimerDisplay(totalSeconds);
+    setNavActive('nav-analysis');
+    showSection('section-analysis');
+}
 
-        // 開始倒數
-        timerInterval = setInterval(() => {
-            const remainingMs = endTime - Date.now();
+// =============================================
+// 單字卡功能
+// =============================================
+function initFlashcardOrder() {
+    AppState.fcOrder = AppState.vocabList.map((_, i) => i);
+    AppState.fcIndex = 0;
+    AppState.fcFlipped = false;
+}
 
-            if (remainingMs <= 0) {
-                clearInterval(timerInterval);
-                timerDisplay.innerHTML = `
-                    <div style="color: #28a745; font-size: 1.8rem;">
-                        ⏰ 時間到！冰棒應該已經凍好了！
-                    </div>
-                    <div style="margin-top: 10px; font-size: 1rem; color: #6c757d;">
-                        可以準備進行脫模囉！
-                    </div>
-                `;
-                // 播放提示音（如果瀏覽器支援）
-                playNotificationSound();
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+}
+
+function renderFlashcard() {
+    const list = AppState.vocabList;
+    const order = AppState.fcOrder;
+    const idx = order[AppState.fcIndex];
+    const item = list[idx];
+    const total = order.length;
+    const current = AppState.fcIndex + 1;
+
+    document.getElementById('fcFront').textContent = item.word;
+    document.getElementById('fcBack').textContent = item.definition;
+    document.getElementById('fcProgressText').textContent = `${current} / ${total}`;
+
+    const fill = document.getElementById('fcProgressFill');
+    fill.style.width = ((current / total) * 100) + '%';
+
+    // Reset flip state
+    const card = document.getElementById('flashcard');
+    card.classList.remove('flipped');
+    AppState.fcFlipped = false;
+
+    // Update nav buttons
+    document.getElementById('fcPrevBtn').disabled = AppState.fcIndex === 0;
+    document.getElementById('fcNextBtn').disabled = AppState.fcIndex === total - 1;
+}
+
+function startFlashcard() {
+    initFlashcardOrder();
+    renderFlashcard();
+    setNavActive('nav-mode');
+    showSection('section-flashcard');
+}
+
+// =============================================
+// 測驗功能
+// =============================================
+function buildQuizQuestions() {
+    const list = AppState.vocabList;
+    // Shuffle a copy for quiz order
+    const order = list.map((_, i) => i);
+    shuffleArray(order);
+
+    const container = document.getElementById('quizQuestions');
+    container.innerHTML = order.map((vocabIdx, qNum) => {
+        const item = list[vocabIdx];
+        return `
+            <div class="quiz-question" data-vocab-idx="${vocabIdx}">
+                <div class="q-number">第 ${qNum + 1} 題</div>
+                <div class="q-prompt">請填入對應「<strong>${escapeHtml(item.definition)}</strong>」的單字：</div>
+                <input type="text"
+                       class="q-input"
+                       id="q-input-${vocabIdx}"
+                       placeholder="輸入答案..."
+                       autocomplete="off"
+                       spellcheck="false">
+                <div class="q-feedback hidden" id="q-feedback-${vocabIdx}"></div>
+            </div>
+        `;
+    }).join('');
+
+    // Store quiz order for grading
+    container.dataset.order = JSON.stringify(order);
+}
+
+function gradeQuiz() {
+    const list = AppState.vocabList;
+    const container = document.getElementById('quizQuestions');
+    const order = JSON.parse(container.dataset.order);
+
+    let correctCount = 0;
+    const details = [];
+
+    order.forEach(vocabIdx => {
+        const item = list[vocabIdx];
+        const input = document.getElementById(`q-input-${vocabIdx}`);
+        const userAnswer = input ? input.value.trim() : '';
+        const isCorrect = userAnswer.toLowerCase() === item.word.toLowerCase();
+        if (isCorrect) correctCount++;
+        details.push({ vocabIdx, word: item.word, definition: item.definition, userAnswer, isCorrect });
+    });
+
+    const total = order.length;
+    const allCorrect = correctCount === total;
+    const score = allCorrect ? total : 0; // 全對才給分
+
+    return { correctCount, total, allCorrect, score, details };
+}
+
+function renderQuizResult(result) {
+    const { correctCount, total, allCorrect, score, details } = result;
+
+    // 顯示個別題目回饋
+    details.forEach(d => {
+        const { vocabIdx } = d;
+        const feedback = document.getElementById(`q-feedback-${vocabIdx}`);
+        if (feedback) {
+            feedback.classList.remove('hidden');
+            if (d.isCorrect) {
+                feedback.className = 'q-feedback correct';
+                feedback.textContent = '✓ 正確！';
             } else {
-                const remainingSeconds = Math.floor(remainingMs / 1000);
-                updateTimerDisplay(remainingSeconds);
+                feedback.className = 'q-feedback incorrect';
+                feedback.textContent = `✗ 正確答案：${d.word}（你填：${d.userAnswer || '（未填寫）'}）`;
             }
-        }, 1000);
+            // Disable input
+            const input = document.getElementById(`q-input-${vocabIdx}`);
+            if (input) input.disabled = true;
+        }
     });
 
-    // 更新計時器顯示
-    function updateTimerDisplay(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
+    // Score card
+    const resultCard = document.getElementById('resultCard');
+    const scoreEl = document.getElementById('resultScore');
+    const msgEl = document.getElementById('resultMessage');
 
-        const timeString = `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
-
-        timerDisplay.innerHTML = `
-            <div style="font-size: 2.5rem; color: #667eea;">
-                ${timeString}
-            </div>
-            <div style="margin-top: 10px; font-size: 0.9rem; color: #6c757d;">
-                剩餘時間
-            </div>
-        `;
+    if (allCorrect) {
+        resultCard.className = 'result-card result-perfect';
+        scoreEl.textContent = `🎉 ${score} / ${total}`;
+        msgEl.textContent = '太棒了！全部答對，得到滿分！';
+    } else {
+        resultCard.className = 'result-card result-fail';
+        scoreEl.textContent = `得分：0 / ${total}`;
+        msgEl.textContent = `答對 ${correctCount} 題，錯誤 ${total - correctCount} 題。需要全對才計分，加油！`;
     }
 
-    // 補零函數
-    function pad(num) {
-        return num.toString().padStart(2, '0');
-    }
+    // Detail table
+    document.getElementById('resultDetails').innerHTML = `
+        <h3 class="result-detail-title">詳細結果：</h3>
+        <table class="result-table">
+            <thead><tr><th>#</th><th>定義</th><th>正確答案</th><th>你的答案</th><th>結果</th></tr></thead>
+            <tbody>
+                ${details.map((d, i) => `
+                    <tr class="${d.isCorrect ? 'row-correct' : 'row-incorrect'}">
+                        <td>${i + 1}</td>
+                        <td>${escapeHtml(d.definition)}</td>
+                        <td><strong>${escapeHtml(d.word)}</strong></td>
+                        <td>${escapeHtml(d.userAnswer) || '<em>未填寫</em>'}</td>
+                        <td>${d.isCorrect ? '✓' : '✗'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
 
-    // 播放通知音效
-    function playNotificationSound() {
-        try {
-            // 創建簡單的提示音
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.frequency.value = 800;
-            oscillator.type = 'sine';
-
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
-        } catch (e) {
-            // 如果不支援，則靜默失敗
-            console.log('Audio not supported');
-        }
-    }
+    document.getElementById('quizContent').classList.add('hidden');
+    document.getElementById('quizResult').classList.remove('hidden');
 }
 
-// 初始化計算器
-function initCalculator() {
-    const calculateBtn = document.getElementById('calculateBtn');
-    const popsicleCount = document.getElementById('popsicleCount');
-    const popsicleSize = document.getElementById('popsicleSize');
-    const sugarLevel = document.getElementById('sugarLevel');
-    const calcResult = document.getElementById('calcResult');
-
-    calculateBtn.addEventListener('click', () => {
-        const count = parseInt(popsicleCount.value) || 8;
-        const size = parseInt(popsicleSize.value) || 80;
-        const sugar = parseFloat(sugarLevel.value) || 0.20;
-
-        // 計算總容量（ml）
-        const totalVolume = count * size;
-
-        // 計算各材料份量
-        const waterVolume = Math.round(totalVolume * 0.6); // 60% 水分
-        const fruitVolume = Math.round(totalVolume * 0.4); // 40% 水果
-        const sugarWeight = Math.round(totalVolume * sugar); // 糖的重量
-        const lemonJuice = Math.ceil(count / 4); // 每4支約1湯匙檸檬汁
-
-        // 水果重量估算（假設果泥密度約1.1）
-        const fruitWeight = Math.round(fruitVolume * 1.1);
-
-        // 顯示結果
-        calcResult.innerHTML = `
-            <h3>📊 所需材料份量</h3>
-            <ul>
-                <li><strong>冰棒數量：</strong>${count} 支</li>
-                <li><strong>總容量：</strong>${totalVolume} ml</li>
-                <li style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #28a745;"><strong>材料清單：</strong></li>
-                <li>🍎 水果果肉：約 ${fruitWeight}g（或果汁 ${fruitVolume}ml）</li>
-                <li>💧 水：${waterVolume}ml</li>
-                <li>🍬 細砂糖：${sugarWeight}g</li>
-                <li>🍋 檸檬汁：${lemonJuice} 湯匙</li>
-            </ul>
-            <div style="margin-top: 20px; padding: 15px; background: #d4edda; border-radius: 8px; font-size: 0.95rem;">
-                <strong>💡 溫馨提醒：</strong><br>
-                • 可依個人口味調整糖量<br>
-                • 使用新鮮水果風味更佳<br>
-                • 建議先製作少量試吃，再調整配方
-            </div>
-        `;
-
-        calcResult.classList.add('show');
-
-        // 捲動到結果處
-        calcResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+// =============================================
+// 工具
+// =============================================
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
-// 鍵盤快捷鍵支援
-document.addEventListener('keydown', (e) => {
-    // 在步驟分頁時，左右鍵可切換步驟
-    const stepsTab = document.getElementById('steps');
-    if (stepsTab.classList.contains('active')) {
-        if (e.key === 'ArrowLeft' && currentStep > 1) {
-            currentStep--;
-            document.getElementById('prevBtn').click();
-        } else if (e.key === 'ArrowRight' && currentStep < totalSteps) {
-            currentStep++;
-            document.getElementById('nextBtn').click();
-        }
-    }
-});
+// =============================================
+// 初始化
+// =============================================
+document.addEventListener('DOMContentLoaded', function () {
 
-// 平滑捲動功能
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
+    // --- 上傳區 ---
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const selectFileBtn = document.getElementById('selectFileBtn');
+    const clearFileBtn = document.getElementById('clearFileBtn');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileNameEl = document.getElementById('fileName');
+    const loadSampleBtn = document.getElementById('loadSampleBtn');
+
+    // 點擊選擇檔案
+    selectFileBtn.addEventListener('click', () => fileInput.click());
+
+    // 拖曳上傳
+    uploadArea.addEventListener('dragover', e => {
         e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
+        uploadArea.classList.add('drag-over');
+    });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+    uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) handleFileSelected(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) handleFileSelected(fileInput.files[0]);
+    });
+
+    function handleFileSelected(file) {
+        fileNameEl.textContent = file.name;
+        fileInfo.classList.remove('hidden');
+        analyzeBtn.disabled = false;
+        analyzeBtn.dataset.fileReady = '1';
+        // Store file reference
+        analyzeBtn._file = file;
+    }
+
+    clearFileBtn.addEventListener('click', () => {
+        fileInput.value = '';
+        fileInfo.classList.add('hidden');
+        analyzeBtn.disabled = true;
+        analyzeBtn._file = null;
+    });
+
+    // 分析按鈕
+    analyzeBtn.addEventListener('click', () => {
+        const file = analyzeBtn._file;
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            const text = e.target.result;
+            const list = parseVocabFile(text);
+            if (list.length === 0) {
+                alert('未能從檔案中解析出詞彙，請確認格式正確（每行：單字,定義）。');
+                return;
+            }
+            analyzeAndStore(list, file.name);
+            renderAnalysisSection();
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+
+    // 範例資料
+    loadSampleBtn.addEventListener('click', () => {
+        analyzeAndStore(SAMPLE_DATA, '範例資料');
+        renderAnalysisSection();
+    });
+
+    // --- 分析區 ---
+    document.getElementById('reuploadBtn').addEventListener('click', () => {
+        setNavActive('nav-upload');
+        showSection('section-upload');
+    });
+
+    document.getElementById('startFlashcardBtn').addEventListener('click', () => {
+        if (AppState.vocabList.length === 0) return;
+        startFlashcard();
+    });
+
+    document.getElementById('startQuizBtn').addEventListener('click', () => {
+        if (AppState.vocabList.length === 0) return;
+        buildQuizQuestions();
+        document.getElementById('quizContent').classList.remove('hidden');
+        document.getElementById('quizResult').classList.add('hidden');
+        setNavActive('nav-mode');
+        showSection('section-quiz');
+    });
+
+    // --- 單字卡 ---
+    document.getElementById('flashcard').addEventListener('click', () => {
+        const card = document.getElementById('flashcard');
+        AppState.fcFlipped = !AppState.fcFlipped;
+        card.classList.toggle('flipped', AppState.fcFlipped);
+    });
+
+    document.getElementById('fcPrevBtn').addEventListener('click', () => {
+        if (AppState.fcIndex > 0) {
+            AppState.fcIndex--;
+            renderFlashcard();
         }
     });
-});
 
-// 防止表單輸入負數
-document.querySelectorAll('input[type="number"]').forEach(input => {
-    input.addEventListener('input', function() {
-        if (this.value < 0) {
-            this.value = 0;
-        }
-        const max = this.getAttribute('max');
-        if (max && parseInt(this.value) > parseInt(max)) {
-            this.value = max;
+    document.getElementById('fcNextBtn').addEventListener('click', () => {
+        if (AppState.fcIndex < AppState.fcOrder.length - 1) {
+            AppState.fcIndex++;
+            renderFlashcard();
         }
     });
+
+    document.getElementById('fcShuffleBtn').addEventListener('click', () => {
+        shuffleArray(AppState.fcOrder);
+        AppState.fcIndex = 0;
+        renderFlashcard();
+    });
+
+    document.getElementById('fcResetBtn').addEventListener('click', () => {
+        initFlashcardOrder();
+        renderFlashcard();
+    });
+
+    document.getElementById('flashcardBackBtn').addEventListener('click', () => {
+        renderAnalysisSection();
+    });
+
+    // --- 測驗 ---
+    document.getElementById('submitQuizBtn').addEventListener('click', () => {
+        const result = gradeQuiz();
+        renderQuizResult(result);
+    });
+
+    document.getElementById('retryQuizBtn').addEventListener('click', () => {
+        buildQuizQuestions();
+        document.getElementById('quizContent').classList.remove('hidden');
+        document.getElementById('quizResult').classList.add('hidden');
+    });
+
+    document.getElementById('quizToModeBtn').addEventListener('click', () => {
+        renderAnalysisSection();
+    });
+
+    document.getElementById('quizBackBtn').addEventListener('click', () => {
+        renderAnalysisSection();
+    });
+
+    // 鍵盤導覽：單字卡左右鍵
+    document.addEventListener('keydown', e => {
+        const fc = document.getElementById('section-flashcard');
+        if (fc.classList.contains('active')) {
+            if (e.key === 'ArrowLeft') document.getElementById('fcPrevBtn').click();
+            else if (e.key === 'ArrowRight') document.getElementById('fcNextBtn').click();
+            else if (e.key === ' ') {
+                e.preventDefault();
+                document.getElementById('flashcard').click();
+            }
+        }
+    });
+
+    // 嘗試從 sessionStorage 恢復狀態
+    const saved = sessionStorage.getItem('vocabList');
+    if (saved) {
+        try {
+            const list = JSON.parse(saved);
+            const name = sessionStorage.getItem('vocabFileName') || '';
+            if (Array.isArray(list) && list.length > 0) {
+                AppState.vocabList = list;
+                AppState.fileName = name;
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    console.log('📚 單字學習系統已載入完成！');
 });
 
-// 頁面載入完成提示
-window.addEventListener('load', () => {
-    console.log('🍦 枝仔冰製作教學工具已載入完成！');
-    console.log('💡 提示：在製作步驟頁面可以使用左右方向鍵切換步驟');
-});
