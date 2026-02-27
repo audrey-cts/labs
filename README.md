@@ -18,7 +18,7 @@
 
 3. **暫存模組（Temporary Storage）**
    - 將分析結果暫時存放（Session/Cache）
-   - 建議設定 TTL（例如 30 分鐘～24 小時）
+   - 建議預設 TTL = 24 小時（可由環境變數調整）
    - 以 `analysisId` 對應單次上傳與後續練習/測驗
 
 4. **學習分流模組（Learning Router）**
@@ -27,7 +27,7 @@
 
 5. **評分模組（Scoring）**
    - 測驗題型固定為填中題（cloze/fill-in-the-blank）
-   - **每題需完全正確才得分**（區分大小寫、標點規則可先定義）
+   - **每題需完全正確才得分**（預設先做 `trim`，再以大小寫敏感、標點敏感進行完整字串比對）
 
 ### 2) 建議資料流
 
@@ -54,7 +54,7 @@
   - `id: string`
   - `prompt: string`（含空格）
   - `answer: string`（標準答案）
-  - `acceptedAnswers: string[]`（可選，若要允許同義/變形）
+  - `acceptedAnswers: string[]`（可選；若有設定，表示可接受答案清單，仍採「完整字串比對且全對才得分」）
 
 ### 4) API（草案）
 
