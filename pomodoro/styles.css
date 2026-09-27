@@ -1,0 +1,144 @@
+:root {
+  --bg: #111827;
+  --card: #1f2937;
+  --text: #f9fafb;
+  --muted: #9ca3af;
+  --primary: #ef4444;
+  --secondary: #374151;
+  --accent: #10b981;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, #1f2937, var(--bg));
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.app {
+  width: min(100%, 720px);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+}
+
+.header p {
+  margin-top: 0.5rem;
+  color: var(--muted);
+}
+
+.timer-card {
+  background: #1b2534;
+  border: 1px solid #374151;
+  border-radius: 1rem;
+  padding: clamp(1rem, 3vw, 2rem);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.mode-btn {
+  border: none;
+  border-radius: 0.7rem;
+  padding: 0.65rem 0.4rem;
+  background: var(--secondary);
+  color: var(--text);
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  cursor: pointer;
+}
+
+.mode-btn.active {
+  background: var(--primary);
+}
+
+.time-display {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin: 1.5rem 0;
+  font-size: clamp(2.6rem, 12vw, 6rem);
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+button {
+  cursor: pointer;
+}
+
+.primary-btn,
+.secondary-btn {
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.2rem;
+  font-size: 1rem;
+  min-width: 112px;
+  color: var(--text);
+}
+
+.primary-btn {
+  background: var(--accent);
+}
+
+.secondary-btn {
+  background: #4b5563;
+}
+
+.stats {
+  margin-top: 1.2rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.stat-item {
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.label {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 0.75rem;
+  }
+
+  .timer-card {
+    border-radius: 0.85rem;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}

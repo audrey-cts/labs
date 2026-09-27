@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>蕃茄鐘</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>🍅 全響應式蕃茄鐘</h1>
+      <p>專注工作，規律休息</p>
+    </header>
+
+    <section class="timer-card">
+      <div class="mode-switch" role="tablist" aria-label="計時模式">
+        <button class="mode-btn active" data-mode="focus">專注</button>
+        <button class="mode-btn" data-mode="shortBreak">短休息</button>
+        <button class="mode-btn" data-mode="longBreak">長休息</button>
+      </div>
+
+      <div class="time-display" id="timeDisplay" aria-live="polite">25:00</div>
+
+      <div class="controls">
+        <button id="startPauseBtn" class="primary-btn">開始</button>
+        <button id="resetBtn" class="secondary-btn">重置</button>
+      </div>
+
+      <div class="stats">
+        <div class="stat-item">
+          <span class="label">已完成番茄數</span>
+          <span id="sessionCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">目前模式</span>
+          <span id="currentMode">專注</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
